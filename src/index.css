@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Warm ivory page, off-white cards, hairline borders, muted ink */
+  --page: #f5f3ee;
+  --card: #faf9f6;
+  --hairline: #edebe7;
+  --ink: #2b2b28;
+  --mink: #8b8677;
+  --terra: #c97b5a;
+  --protein: #7c7a9c;
+  --carbs: #c9a24b;
+  --fatm: #7fa28c;
+  /* Deeper chart-stroke variants (validated for CVD + contrast) */
+  --chart-cal: #be6a47;
+  --chart-protein: #6259b8;
+  --chart-carbs: #a8842b;
+  --chart-fat: #3e8e63;
+}
+
+.dark {
+  --page: #1b1a18;
+  --card: #232220;
+  --hairline: #35332e;
+  --ink: #ecebe5;
+  --mink: #97927f;
+  --terra: #d18a6b;
+  --protein: #918fb3;
+  --carbs: #d4b061;
+  --fatm: #92b5a0;
+  --chart-cal: #d1875f;
+  --chart-protein: #9a91e0;
+  --chart-carbs: #c9a24b;
+  --chart-fat: #6bb58c;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-mink: var(--mink);
+  --color-terra: var(--terra);
+  --color-protein: var(--protein);
+  --color-carbs: var(--carbs);
+  --color-fatm: var(--fatm);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces", Georgia, serif;
+  --animate-fadein: fadein 150ms ease-out;
+
+  @keyframes fadein {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+body {
+  background-color: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Micro-label: uppercase, letter-spaced, muted */
+.micro {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mink);
+  font-weight: 500;
+}
+
+/* Quiet number inputs */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
