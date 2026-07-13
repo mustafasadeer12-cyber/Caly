@@ -58,6 +58,26 @@ function parseCSV(text) {
   return rows
 }
 
+const MD_SEPARATOR_RE = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$/
+
+// Parses a GitHub-style markdown table into the same row-array shape as parseCSV
+function parseMarkdownTable(text) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith('|'))
+
+  return lines
+    .filter((line) => !MD_SEPARATOR_RE.test(line))
+    .map((line) =>
+      line
+        .replace(/^\|/, '')
+        .replace(/\|$/, '')
+        .split('|')
+        .map((cell) => cell.trim())
+    )
+}
+
 function rowsToFoods(rows) {
   if (rows.length < 2) return []
   const headers = rows[0].map((h) => String(h).trim().toLowerCase().replace(/\s+/g, '_'))
@@ -206,6 +226,8 @@ export default function FoodDatabase() {
         const wb = XLSX.read(await file.arrayBuffer())
         const sheet = wb.Sheets[wb.SheetNames[0]]
         rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false })
+      } else if (/\.md$/i.test(file.name)) {
+        rows = parseMarkdownTable(await file.text())
       } else {
         rows = parseCSV(await file.text())
       }
@@ -237,7 +259,7 @@ export default function FoodDatabase() {
       <input
         ref={fileRef}
         type="file"
-        accept=".csv,.xlsx,.xls"
+        accept=".csv,.xlsx,.xls,.md"
         className="hidden"
         onChange={handleImport}
       />

@@ -11,7 +11,7 @@ export default function Header({ onOpenSettings }) {
         to="/"
         className="absolute left-1/2 -translate-x-1/2 font-serif text-lg tracking-[0.35em] text-ink"
       >
-        R A T I O
+        Caly
       </Link>
       <nav className="flex items-center gap-1">
         <Link
