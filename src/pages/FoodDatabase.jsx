@@ -78,31 +78,92 @@ function parseMarkdownTable(text) {
     )
 }
 
+// Maps loose header/label spellings (case, spacing, "_100g" suffixes, "per 100g") to our field names
+const FIELD_ALIASES = {
+  name: 'name',
+  food_name: 'name',
+  food: 'name',
+  brand: 'brand',
+  calories: 'calories',
+  calories_100g: 'calories',
+  protein: 'protein',
+  protein_100g: 'protein',
+  carbs: 'carbs',
+  carbs_100g: 'carbs',
+  carbohydrates: 'carbs',
+  fat: 'fat',
+  fat_100g: 'fat',
+  unit_name: 'unit_name',
+  unit: 'unit_name',
+  unit_weight_grams: 'unit_weight_grams',
+  unit_weight: 'unit_weight_grams',
+}
+
+function normalizeKey(raw) {
+  const key = String(raw)
+    .trim()
+    .toLowerCase()
+    .replace(/\bper\s*100\s*g\b/g, '') // "Calories per 100g" -> "calories "
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return FIELD_ALIASES[key] || key
+}
+
+// Strips units/labels so "180.4 kcal" or "8.3g" -> 180.4 / 8.3
+function toNumber(value) {
+  if (value == null) return NaN
+  const match = String(value).match(/-?\d+(\.\d+)?/)
+  return match ? parseFloat(match[0]) : NaN
+}
+
+function toFood(obj) {
+  const food = {
+    name: String(obj.name || '').trim(),
+    brand: String(obj.brand || '').trim(),
+    calories: toNumber(obj.calories),
+    protein: toNumber(obj.protein),
+    carbs: toNumber(obj.carbs),
+    fat: toNumber(obj.fat),
+  }
+  if (obj.unit_name) food.unit_name = String(obj.unit_name).trim()
+  if (obj.unit_weight_grams != null) {
+    const grams = toNumber(obj.unit_weight_grams)
+    if (Number.isFinite(grams)) food.unit_weight_grams = grams
+  }
+  return food
+}
+
+function isValidFood(f) {
+  return f.name && [f.calories, f.protein, f.carbs, f.fat].every((n) => Number.isFinite(n))
+}
+
 function rowsToFoods(rows) {
   if (rows.length < 2) return []
-  const headers = rows[0].map((h) => String(h).trim().toLowerCase().replace(/\s+/g, '_'))
+  const headers = rows[0].map(normalizeKey)
   return rows
     .slice(1)
     .map((cells) => {
       const obj = {}
       headers.forEach((h, i) => (obj[h] = cells[i]))
-      const food = {
-        name: String(obj.name || '').trim(),
-        brand: String(obj.brand || '').trim(),
-        calories: parseFloat(obj.calories),
-        protein: parseFloat(obj.protein),
-        carbs: parseFloat(obj.carbs),
-        fat: parseFloat(obj.fat),
-      }
-      if (obj.unit_name) food.unit_name = String(obj.unit_name).trim()
-      if (obj.unit_weight_grams) food.unit_weight_grams = parseFloat(obj.unit_weight_grams)
-      return food
+      return toFood(obj)
     })
-    .filter(
-      (f) =>
-        f.name &&
-        [f.calories, f.protein, f.carbs, f.fat].every((n) => Number.isFinite(n))
-    )
+    .filter(isValidFood)
+}
+
+// Parses "### Heading" + "* **Label**: value" blocks (see FINAL FOOD TABLE.md) into foods
+function bulletBlocksToFoods(text) {
+  const blocks = text.split(/^#{1,6}\s.*$/m).slice(1) // drop preamble before first heading
+  return blocks
+    .map((block) => {
+      const obj = {}
+      const lineRe = /^\s*[*-]\s*\*{0,2}([^*:]+?)\*{0,2}\s*:\s*(.+?)\s*$/gm
+      let m
+      while ((m = lineRe.exec(block))) {
+        obj[normalizeKey(m[1])] = m[2]
+      }
+      return toFood(obj)
+    })
+    .filter(isValidFood)
 }
 
 export default function FoodDatabase() {
@@ -220,18 +281,19 @@ export default function FoodDatabase() {
     setBusy(true)
     setNotice('')
     try {
-      let rows
+      let items
       if (/\.(xlsx|xls)$/i.test(file.name)) {
         const XLSX = await import('xlsx')
         const wb = XLSX.read(await file.arrayBuffer())
         const sheet = wb.Sheets[wb.SheetNames[0]]
-        rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false })
+        items = rowsToFoods(XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }))
       } else if (/\.md$/i.test(file.name)) {
-        rows = parseMarkdownTable(await file.text())
+        const text = await file.text()
+        // .md files may contain a table, "### Heading" + bullet blocks, or both
+        items = [...rowsToFoods(parseMarkdownTable(text)), ...bulletBlocksToFoods(text)]
       } else {
-        rows = parseCSV(await file.text())
+        items = rowsToFoods(parseCSV(await file.text()))
       }
-      const items = rowsToFoods(rows)
       if (items.length === 0) {
         setNotice('No valid rows found. Expected headers: name, calories, protein, carbs, fat.')
         return
