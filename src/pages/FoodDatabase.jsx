@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Plus, Upload, Pencil, Trash2 } from 'lucide-react'
+import { Search, Plus, Upload, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { Card } from '@/components/ui/card'
 import { Input, Label } from '@/components/ui/input'
@@ -116,6 +116,18 @@ function toNumber(value) {
   return match ? parseFloat(match[0]) : NaN
 }
 
+// Splits a combined "Name (123g)" unit column into { name, grams }.
+// Some reference files (e.g. "Can (325g)", "Egg (33g)") pack both into one cell
+// instead of separate unit_name / unit_weight_grams columns.
+function splitCombinedUnit(value) {
+  const match = String(value).match(/^(.*?)\s*\(([\d.]+)\s*g\)\s*$/i)
+  if (!match) return null
+  const name = match[1].trim()
+  const grams = parseFloat(match[2])
+  if (!name || !Number.isFinite(grams)) return null
+  return { name, grams }
+}
+
 function toFood(obj) {
   const food = {
     name: String(obj.name || '').trim(),
@@ -125,11 +137,21 @@ function toFood(obj) {
     carbs: toNumber(obj.carbs),
     fat: toNumber(obj.fat),
   }
-  if (obj.unit_name) food.unit_name = String(obj.unit_name).trim()
-  if (obj.unit_weight_grams != null) {
-    const grams = toNumber(obj.unit_weight_grams)
-    if (Number.isFinite(grams)) food.unit_weight_grams = grams
+
+  const hasSeparateWeight = obj.unit_weight_grams != null && toNumber(obj.unit_weight_grams) > 0
+  const combined = !hasSeparateWeight ? splitCombinedUnit(obj.unit_name) : null
+
+  if (combined) {
+    food.unit_name = combined.name
+    food.unit_weight_grams = combined.grams
+  } else {
+    if (obj.unit_name) food.unit_name = String(obj.unit_name).trim()
+    if (obj.unit_weight_grams != null) {
+      const grams = toNumber(obj.unit_weight_grams)
+      if (Number.isFinite(grams)) food.unit_weight_grams = grams
+    }
   }
+
   return food
 }
 
@@ -174,6 +196,8 @@ export default function FoodDatabase() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('')
   const fileRef = useRef(null)
 
   const load = () => api.get('/food-items').then(setFoods).catch(console.error)
@@ -274,6 +298,21 @@ export default function FoodDatabase() {
     load()
   }
 
+  async function removeAll() {
+    setBusy(true)
+    try {
+      await api.del('/food-items?all=true')
+      setDeleteAllOpen(false)
+      setDeleteAllConfirmText('')
+      setNotice('Deleted all foods.')
+      load()
+    } catch (e) {
+      setNotice(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleImport(e) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -311,6 +350,11 @@ export default function FoodDatabase() {
   return (
     <div className="mx-auto min-h-screen max-w-[640px] px-4 pb-16">
       <PageHeader title="Food Database">
+        {foods.length > 0 && (
+          <Button variant="danger" size="sm" onClick={() => setDeleteAllOpen(true)}>
+            <Trash2 size={14} /> Delete all
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
           <Upload size={14} /> Import
         </Button>
@@ -429,6 +473,45 @@ export default function FoodDatabase() {
             </div>
             <Button className="w-full" onClick={save} disabled={busy || !form.name.trim()}>
               {busy ? 'Saving…' : 'Save food'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteAllOpen}
+        onOpenChange={(open) => {
+          setDeleteAllOpen(open)
+          if (!open) setDeleteAllConfirmText('')
+        }}
+      >
+        <DialogContent title="Delete all foods">
+          <div className="space-y-3">
+            <div className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <p>
+                This permanently deletes all {foods.length} food{foods.length === 1 ? '' : 's'} in
+                your database. Recipes and past meal logs are not affected, but any recipe using
+                these foods can no longer be edited from its ingredients. This cannot be undone.
+              </p>
+            </div>
+            <div>
+              <Label>
+                Type <strong className="text-ink">delete all</strong> to confirm
+              </Label>
+              <Input
+                value={deleteAllConfirmText}
+                onChange={(e) => setDeleteAllConfirmText(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <Button
+              variant="danger"
+              className="w-full"
+              onClick={removeAll}
+              disabled={busy || deleteAllConfirmText.trim().toLowerCase() !== 'delete all'}
+            >
+              {busy ? 'Deleting…' : 'Delete all foods'}
             </Button>
           </div>
         </DialogContent>

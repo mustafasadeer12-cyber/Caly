@@ -39,7 +39,11 @@ export default requireAuth(async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const { id } = req.query
+    const { id, all } = req.query
+    if (all === 'true') {
+      const { deletedCount } = await FoodItem.deleteMany({ userId })
+      return res.status(200).json({ ok: true, deletedCount })
+    }
     const doc = await FoodItem.findOneAndDelete({ _id: id, userId })
     if (!doc) return res.status(404).json({ error: 'Food not found' })
     return res.status(200).json({ ok: true })
