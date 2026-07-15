@@ -128,10 +128,17 @@ function splitCombinedUnit(value) {
   return { name, grams }
 }
 
+// Treats common "no value" placeholders (—, -, –, N/A) as empty
+const BLANK_RE = /^[-—–]+$|^n\/?a$/i
+function cleanText(value) {
+  const text = String(value || '').trim()
+  return BLANK_RE.test(text) ? '' : text
+}
+
 function toFood(obj) {
   const food = {
-    name: String(obj.name || '').trim(),
-    brand: String(obj.brand || '').trim(),
+    name: cleanText(obj.name),
+    brand: cleanText(obj.brand),
     calories: toNumber(obj.calories),
     protein: toNumber(obj.protein),
     carbs: toNumber(obj.carbs),
@@ -145,7 +152,8 @@ function toFood(obj) {
     food.unit_name = combined.name
     food.unit_weight_grams = combined.grams
   } else {
-    if (obj.unit_name) food.unit_name = String(obj.unit_name).trim()
+    const unitName = cleanText(obj.unit_name)
+    if (unitName) food.unit_name = unitName
     if (obj.unit_weight_grams != null) {
       const grams = toNumber(obj.unit_weight_grams)
       if (Number.isFinite(grams)) food.unit_weight_grams = grams
