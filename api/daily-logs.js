@@ -6,6 +6,7 @@ const DEFAULT_SUPPLEMENTS = [
   { name: 'Creatine', isTaken: false },
   { name: 'Omega-3', isTaken: false },
   { name: 'Zinc', isTaken: false },
+  { name : 'KSM-66', isTaken: false }
 ]
 
 export default requireAuth(async function handler(req, res) {
