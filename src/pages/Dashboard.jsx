@@ -72,6 +72,23 @@ export default function Dashboard() {
     loadLogs()
   }
 
+  // Calories-only entry saved as a normal log, so totals/streak/history just work
+  async function quickAddCalories(calories, meal_category) {
+    await api.post('/meal-logs', {
+      date,
+      meal_category,
+      food_item_id: 'quick-add', // schema requires one; not a real food
+      food_name: 'Quick add',
+      servings: 1,
+      unit: 'srv',
+      calories,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+    })
+    loadLogs()
+  }
+
   async function updateSupplements(supplements) {
     // Optimistic update, then persist
     setDailyLog((d) => ({ ...d, supplements }))
@@ -111,7 +128,11 @@ export default function Dashboard() {
           <RuinedDayCard onUndo={() => setRuinedDays(toggleRuinedDay(date))} />
         ) : goal ? (
           <>
-            <CaloriesCard current={totals.calories} goal={goal.calories} />
+            <CaloriesCard
+              current={totals.calories}
+              goal={goal.calories}
+              onQuickAdd={quickAddCalories}
+            />
             <MacroRings totals={totals} goal={goal} />
           </>
         ) : (
