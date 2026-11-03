@@ -44,6 +44,7 @@ function AddFoodModalInner({ open, onOpenChange, date, todayTotals, goal, onSave
   const [mealItems, setMealItems] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [quickKcal, setQuickKcal] = useState('')
 
   useEffect(() => {
     Promise.all([api.get('/food-items'), api.get('/recipes')])
@@ -126,6 +127,26 @@ function AddFoodModalInner({ open, onOpenChange, date, todayTotals, goal, onSave
     }
     setSelected(null)
     setAmount('')
+  }
+
+  // Calories-only item: joins the meal list and saves with everything else
+  function addQuickCalories() {
+    const calories = parseFloat(quickKcal) || 0
+    if (calories <= 0) return
+    setMealItems((prev) => [
+      ...prev,
+      {
+        food_item_id: 'quick-add', // schema requires one; not a real food
+        food_name: 'Quick add',
+        servings: 1,
+        unit: 'srv',
+        calories,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+    ])
+    setQuickKcal('')
   }
 
   async function saveMeal() {
@@ -216,6 +237,27 @@ function AddFoodModalInner({ open, onOpenChange, date, todayTotals, goal, onSave
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Quick add: just calories, no food */}
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min="0"
+              value={quickKcal}
+              onChange={(e) => setQuickKcal(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addQuickCalories()}
+              placeholder="Or just add calories, e.g. 360"
+              className="h-9"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={addQuickCalories}
+              disabled={!(parseFloat(quickKcal) > 0)}
+            >
+              <Plus size={14} /> Add
+            </Button>
           </div>
 
           {/* Selected item panel */}
